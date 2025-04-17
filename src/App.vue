@@ -20,7 +20,7 @@
         <span class="score">Score: {{ score }}</span>
       </div>
 
-      <p class="instruction">Circle the correct answers.</p>
+      <p class="instruction">Circle the correct answers. hhhhh</p>
 
       <div class="questions">
         <div v-for="(q, index) in questions" :key="index" class="question-card">
