@@ -1,4 +1,8 @@
 <template>
+  <div v-if="showPopup" class="popup-message">
+    {{ message }}
+  </div>
+
   <div class="high-scores">
     <h2>🏆 High Scores</h2>
     <ul>
@@ -26,13 +30,21 @@
         <div v-for="(q, index) in questions" :key="index" class="question-card">
           <p>{{ index + 1 }}. {{ q.question }}</p>
           <div class="choices">
-            <label v-for="(choice, i) in q.choices" :key="i">
+            <label
+              v-for="(choice, i) in q.choices"
+              :key="i"
+              :class="getAnswerClass(index, choice)"
+            >
               <input
                 type="radio"
                 :name="'q' + index"
                 :value="choice"
                 v-model="answers[index]"
+                class="hidden-input"
               />
+              <span class="choice-label"
+                >{{ String.fromCharCode(65 + i) }}.</span
+              >
               {{ choice }}
             </label>
           </div>
@@ -40,8 +52,10 @@
       </div>
 
       <div class="buttons">
-        <button type="button" @click="resetAnswers">Reset</button>
-        <button type="submit">Submit</button>
+        <button class="btn-red" type="button" @click="resetAnswers">
+          Reset
+        </button>
+        <button class="btn-green" type="submit">Submit</button>
       </div>
     </form>
 
@@ -127,7 +141,6 @@ const questions = [
   },
 ];
 
-
 const resetAnswers = () => {
   for (let i = 0; i < answers.length; i++) {
     answers[i] = "";
@@ -135,9 +148,20 @@ const resetAnswers = () => {
   score.value = null;
 };
 
+const message = ref("");
+const showPopup = ref(false);
+
+const showMessage = (msg) => {
+  message.value = msg;
+  showPopup.value = true;
+  setTimeout(() => {
+    showPopup.value = false;
+  }, 3000); // Hide after 3 seconds
+};
+
 const handleSubmit = async () => {
   if (!name.value.trim()) {
-    alert("Please enter your name before submitting.");
+    showMessage("⚠️ Please enter your name before submitting.");
     return;
   }
 
@@ -149,16 +173,16 @@ const handleSubmit = async () => {
   });
   score.value = userScore + " / 12";
 
-  // 👇 Log to Firebase
   try {
     await push(dbRef(database, "scores"), {
       name: name.value,
       score: userScore,
       timestamp: Date.now(),
     });
-    console.log("Score saved!");
+    showMessage("✅ Score submitted successfully!");
   } catch (e) {
     console.error("Failed to save score:", e);
+    showMessage("❌ Failed to submit score. Please try again.");
   }
 };
 
@@ -181,6 +205,10 @@ const loadHighScores = () => {
       highScores.value = [];
     }
   });
+};
+
+const getAnswerClass = (qIndex, choice) => {
+  return answers[qIndex] === choice ? "selected-answer" : "";
 };
 
 // Load on mount
@@ -253,11 +281,14 @@ h1 {
 }
 
 .choices label {
-  display: block;
-  margin-top: 5px;
+  position: relative;
+  padding-left: 20px;
+  cursor: pointer;
 }
 
 .choices {
+  display: grid;
+  gap: 0.5rem;
   justify-items: start;
   margin-left: 1em;
 }
@@ -276,16 +307,116 @@ button {
   color: white;
   font-size: 1rem;
   cursor: pointer;
+  opacity: 0.8;
 }
+
+.btn-red {
+  background-color: rgb(212, 15, 15);
+}
+
+.btn-green {
+  background-color: #4caf50;
+}
+
 button:hover {
-  background-color: #45a049;
+  filter: brightness(1.2);
+  opacity: 1;
 }
+
 footer {
   margin-top: 2rem;
   text-align: center;
   font-size: 0.85rem;
   color: #777;
 }
+
+.popup-message {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background-color: #333;
+  color: #fff;
+  padding: 1rem 2rem;
+  border-radius: 10px;
+  font-size: 1.2rem;
+  z-index: 9999;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+  animation: fadeInOut 3s ease-in-out;
+}
+
+@keyframes fadeInOut {
+  0% {
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  90% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+.choices label::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%) translateX(20%);
+  width: 100%;
+  height: 100%;
+  border: 2px solid transparent;
+  border-radius: 50%;
+  opacity: 0;
+  transition: border 0.3s ease, opacity 0.3s ease;
+}
+
+.choices label:hover::before {
+  border-color: red;
+  opacity: 1;
+}
+
+.choices label.selected-answer::before {
+  border-color: red;
+  opacity: 1;
+}
+
+.hidden-input {
+  display: none;
+}
+
+.choice-label {
+  display: inline-block;
+  width: 1.5rem;
+  height: 1.5rem;
+  font-weight: bold;
+  text-align: center;
+  margin-right: 0.5rem;
+}
+
+@keyframes pulseCircle {
+  0% {
+    transform: scale(0.6) translateY(-50%);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1) translateY(-50%);
+    opacity: 1;
+  }
+}
+
+@keyframes popHighlight {
+  0% {
+    transform: scale(0.95);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
 @media (max-width: 768px) {
   .questions {
     grid-template-columns: 1fr;
