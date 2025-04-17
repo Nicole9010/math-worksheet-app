@@ -20,7 +20,7 @@
         <span class="score">Score: {{ score }}</span>
       </div>
 
-      <p class="instruction">Circle the correct answers. hhhhh</p>
+      <p class="instruction">Circle the correct answers.</p>
 
       <div class="questions">
         <div v-for="(q, index) in questions" :key="index" class="question-card">
@@ -127,20 +127,6 @@ const questions = [
   },
 ];
 
-// const handleSubmit = () => {
-//   if (!name.value.trim()) {
-//     alert("Please enter your name before submitting.");
-//     return;
-//   }
-
-//   let userScore = 0;
-//   answers.forEach((ans, i) => {
-//     if (ans === correctAnswers[i]) {
-//       userScore++;
-//     }
-//   });
-//   score.value = userScore + " / 12";
-// };
 
 const resetAnswers = () => {
   for (let i = 0; i < answers.length; i++) {
