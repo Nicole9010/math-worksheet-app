@@ -3,14 +3,28 @@
     {{ message }}
   </div>
 
-  <div class="high-scores">
+  <div class="high-scores-container">
     <h2>🏆 High Scores</h2>
-    <ul>
-      <li v-for="(entry, i) in highScores" :key="i">
-        <strong>{{ entry.name }}</strong
-        >: {{ entry.score }} / 12
-      </li>
-    </ul>
+    <div class="high-scores-wrapper">
+      <div class="high-scores-list">
+        <div
+          v-for="(entry, i) in sortedHighScores"
+          :key="entry.timestamp"
+          class="score-entry"
+          :class="{
+            topScore: i < 3,
+          }"
+        >
+          <span class="rank-icon" v-if="i < 3">
+            {{ ["🥇", "🥈", "🥉"][i] }}
+          </span>
+          <span class="rank-number" v-if="i >= 3">
+            {{ i + 1 }}
+          </span>
+          <strong>{{ entry.name }}</strong> {{ entry.score }} / 12
+        </div>
+      </div>
+    </div>
   </div>
 
   <div class="app-container">
@@ -66,7 +80,7 @@
 </template>
 
 <script setup>
-import { reactive, ref, onMounted } from "vue";
+import { reactive, ref, onMounted, nextTick, computed } from "vue";
 import { database, ref as dbRef, push } from "./firebase"; // 👈 Import Firebase
 import { onValue, query, orderByChild, limitToLast } from "firebase/database";
 
@@ -74,6 +88,14 @@ const name = ref("");
 const score = ref(null);
 const answers = reactive(Array(12).fill(""));
 const highScores = ref([]);
+const userScoreRef = ref(null);
+const isSubmitted = ref(false);
+
+const sortedHighScores = computed(() => {
+  return [...highScores.value].sort(
+    (a, b) => b.score - a.score || b.timestamp - a.timestamp
+  );
+});
 
 const correctAnswers = [
   "20",
@@ -146,6 +168,7 @@ const resetAnswers = () => {
     answers[i] = "";
   }
   score.value = null;
+  isSubmitted.value = false; // 🧼 clear answer indicators
 };
 
 const message = ref("");
@@ -160,6 +183,8 @@ const showMessage = (msg) => {
 };
 
 const handleSubmit = async () => {
+  isSubmitted.value = true;
+
   if (!name.value.trim()) {
     showMessage("⚠️ Please enter your name before submitting.");
     return;
@@ -179,7 +204,19 @@ const handleSubmit = async () => {
       score: userScore,
       timestamp: Date.now(),
     });
+
     showMessage("✅ Score submitted successfully!");
+
+    // Wait for DOM update, then scroll to user
+    await nextTick();
+    setTimeout(() => {
+      const el = userScoreRef.value;
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        el.classList.add("highlight");
+        setTimeout(() => el.classList.remove("highlight"), 3000);
+      }
+    }, 500);
   } catch (e) {
     console.error("Failed to save score:", e);
     showMessage("❌ Failed to submit score. Please try again.");
@@ -190,8 +227,8 @@ const handleSubmit = async () => {
 const loadHighScores = () => {
   const scoresRef = query(
     dbRef(database, "scores"),
-    orderByChild("score"),
-    limitToLast(5)
+    orderByChild("score")
+    // limitToLast(5)
   );
 
   onValue(scoresRef, (snapshot) => {
@@ -208,7 +245,19 @@ const loadHighScores = () => {
 };
 
 const getAnswerClass = (qIndex, choice) => {
-  return answers[qIndex] === choice ? "selected-answer" : "";
+  const selected = answers[qIndex];
+  const correct = correctAnswers[qIndex];
+
+  if (!isSubmitted.value) {
+    return selected === choice ? "selected-answer" : "";
+  }
+
+  // After submission:
+  if (choice === correct && selected !== correct) return "correct-answer"; // show correct answer if user chose wrong
+  if (choice === selected && selected !== correct) return "wrong-answer"; // show red for wrong selection
+  if (choice === correct && selected === correct) return "correct-selected"; // green for correct selected
+
+  return "";
 };
 
 // Load on mount
@@ -218,26 +267,95 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.high-scores {
+.high-scores-container {
   margin-top: 3rem;
   padding: 1rem;
-  /* background: #f9f9f9; */
   border: 2px solid #ddd;
   border-radius: 12px;
+  max-height: 400px;
+  /* overflow-y: auto; */
+  /* background-color: #fff; */
+  box-shadow: 0 0 12px rgba(0, 0, 0, 0.08);
 }
 
-.high-scores h2 {
+.high-scores-container h2 {
   margin-bottom: 0.5rem;
+  text-align: center;
 }
 
-.high-scores ul {
-  list-style: none;
-  padding-left: 0;
+.high-scores-wrapper {
+  width: 100%;
+  height: 315px;
+  overflow-y: scroll;
+  scrollbar-width: thin;
 }
 
-.high-scores li {
-  padding: 0.5rem 0;
-  border-bottom: 1px solid #eee;
+.high-scores-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.score-entry {
+  /* padding: 0.75rem 1rem; */
+  padding: 0.75rem 8rem;
+  border-radius: 10px;
+  background: #f3f3f3;
+  color: black;
+  display: flex;
+  align-items: center;
+  transition: background 0.3s;
+}
+
+.score-entry strong {
+  flex: 1;
+}
+
+.rank-icon {
+  margin-right: 10px;
+  font-size: 1.3rem;
+}
+
+.rank-number {
+  margin-left: 10px;
+  font-size: 1.3rem;
+}
+
+.topScore {
+  background-color: #fff8e1;
+  border-left: 4px solid #ffb300;
+}
+
+/* .userScore {
+  border: 2px solid #4caf50;
+  animation: pulse 1s infinite alternate;
+} */
+
+.highlight {
+  animation: pop-border 1.5s ease-out;
+}
+
+@keyframes pulse {
+  from {
+    box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.6);
+  }
+  to {
+    box-shadow: 0 0 12px 4px rgba(76, 175, 80, 0.3);
+  }
+}
+
+@keyframes pop-border {
+  0% {
+    transform: scale(1);
+    border-color: #4caf50;
+  }
+  50% {
+    transform: scale(1.05);
+    border-color: #66bb6a;
+  }
+  100% {
+    transform: scale(1);
+  }
 }
 
 .app-container {
@@ -375,12 +493,27 @@ footer {
 }
 
 .choices label:hover::before {
+  border-color: yellow;
+  opacity: 1;
+}
+
+.choices label.correct-answer::before {
+  border-color: green;
+  opacity: 1;
+}
+
+.choices label.wrong-answer::before {
   border-color: red;
   opacity: 1;
 }
 
+.choices label.correct-selected::before {
+  border-color: green;
+  opacity: 1;
+}
+
 .choices label.selected-answer::before {
-  border-color: red;
+  border-color: orange;
   opacity: 1;
 }
 
