@@ -155,7 +155,7 @@ const questions = [
   },
   {
     question: "999 rounded off to the nearest 10 is..",
-    choices: ["990", "1,000", "909"],
+    choices: ["990", "1000", "909"],
   },
 ];
 
