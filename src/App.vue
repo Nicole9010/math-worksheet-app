@@ -11,16 +11,12 @@
           v-for="(entry, i) in sortedHighScores"
           :key="entry.timestamp"
           class="score-entry"
-          :class="{
-            topScore: i < 3,
-          }"
+          :class="{ topScore: i < 3 }"
         >
           <span class="rank-icon" v-if="i < 3">
             {{ ["🥇", "🥈", "🥉"][i] }}
           </span>
-          <span class="rank-number" v-if="i >= 3">
-            {{ i + 1 }}
-          </span>
+          <span class="rank-number" v-else>{{ i + 1 }}</span>
           <strong>{{ entry.name }}</strong> {{ entry.score }} / 12
         </div>
       </div>
@@ -81,8 +77,8 @@
 
 <script setup>
 import { reactive, ref, onMounted, nextTick, computed } from "vue";
-import { database, ref as dbRef, push } from "./firebase"; // 👈 Import Firebase
-import { onValue, query, orderByChild, limitToLast } from "firebase/database";
+import { database, ref as dbRef, push } from "./firebase";
+import { onValue, query, orderByChild } from "firebase/database";
 
 const name = ref("");
 const score = ref(null);
@@ -164,11 +160,9 @@ const questions = [
 ];
 
 const resetAnswers = () => {
-  for (let i = 0; i < answers.length; i++) {
-    answers[i] = "";
-  }
+  for (let i = 0; i < answers.length; i++) answers[i] = "";
   score.value = null;
-  isSubmitted.value = false; // 🧼 clear answer indicators
+  isSubmitted.value = false;
 };
 
 const message = ref("");
@@ -179,22 +173,20 @@ const showMessage = (msg) => {
   showPopup.value = true;
   setTimeout(() => {
     showPopup.value = false;
-  }, 3000); // Hide after 3 seconds
+  }, 3000);
 };
 
 const handleSubmit = async () => {
-  isSubmitted.value = true;
-
   if (!name.value.trim()) {
-    showMessage("⚠️ Please enter your name before submitting.");
+    showMessage("Please enter your name before submitting.");
     return;
   }
 
+  isSubmitted.value = true;
+
   let userScore = 0;
   answers.forEach((ans, i) => {
-    if (ans === correctAnswers[i]) {
-      userScore++;
-    }
+    if (ans === correctAnswers[i]) userScore++;
   });
   score.value = userScore + " / 12";
 
@@ -205,10 +197,9 @@ const handleSubmit = async () => {
       timestamp: Date.now(),
     });
 
-    showMessage("✅ Score submitted successfully!");
-
-    // Wait for DOM update, then scroll to user
+    showMessage("Score submitted successfully!");
     await nextTick();
+
     setTimeout(() => {
       const el = userScoreRef.value;
       if (el) {
@@ -219,22 +210,15 @@ const handleSubmit = async () => {
     }, 500);
   } catch (e) {
     console.error("Failed to save score:", e);
-    showMessage("❌ Failed to submit score. Please try again.");
+    showMessage("Failed to submit score. Please try again.");
   }
 };
 
-// Fetch high scores
 const loadHighScores = () => {
-  const scoresRef = query(
-    dbRef(database, "scores"),
-    orderByChild("score")
-    // limitToLast(5)
-  );
-
+  const scoresRef = query(dbRef(database, "scores"), orderByChild("score"));
   onValue(scoresRef, (snapshot) => {
     const data = snapshot.val();
     if (data) {
-      // Convert object to array and sort descending
       highScores.value = Object.values(data).sort(
         (a, b) => b.score - a.score || b.timestamp - a.timestamp
       );
@@ -247,161 +231,64 @@ const loadHighScores = () => {
 const getAnswerClass = (qIndex, choice) => {
   const selected = answers[qIndex];
   const correct = correctAnswers[qIndex];
-
-  if (!isSubmitted.value) {
-    return selected === choice ? "selected-answer" : "";
-  }
-
-  // After submission:
-  if (choice === correct && selected !== correct) return "correct-answer"; // show correct answer if user chose wrong
-  if (choice === selected && selected !== correct) return "wrong-answer"; // show red for wrong selection
-  if (choice === correct && selected === correct) return "correct-selected"; // green for correct selected
-
+  if (!isSubmitted.value) return selected === choice ? "selected-answer" : "";
+  if (choice === correct && selected !== correct) return "correct-answer";
+  if (choice === selected && selected !== correct) return "wrong-answer";
+  if (choice === correct && selected === correct) return "correct-selected";
   return "";
 };
 
-// Load on mount
 onMounted(() => {
   loadHighScores();
 });
 </script>
 
 <style scoped>
-.high-scores-container {
-  margin-top: 3rem;
-  padding: 1rem;
-  border: 2px solid #ddd;
-  border-radius: 12px;
-  max-height: 400px;
-  /* overflow-y: auto; */
-  /* background-color: #fff; */
-  box-shadow: 0 0 12px rgba(0, 0, 0, 0.08);
-}
-
-.high-scores-container h2 {
-  margin-bottom: 0.5rem;
-  text-align: center;
-}
-
-.high-scores-wrapper {
-  width: 100%;
-  height: 315px;
-  overflow-y: scroll;
-  scrollbar-width: thin;
-}
-
-.high-scores-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.score-entry {
-  /* padding: 0.75rem 1rem; */
-  padding: 0.75rem 8rem;
-  border-radius: 10px;
-  background: #f3f3f3;
-  color: black;
-  display: flex;
-  align-items: center;
-  transition: background 0.3s;
-}
-
-.score-entry strong {
-  flex: 1;
-}
-
-.rank-icon {
-  margin-right: 10px;
-  font-size: 1.3rem;
-}
-
-.rank-number {
-  margin-left: 10px;
-  font-size: 1.3rem;
-}
-
-.topScore {
-  background-color: #fff8e1;
-  border-left: 4px solid #ffb300;
-}
-
-/* .userScore {
-  border: 2px solid #4caf50;
-  animation: pulse 1s infinite alternate;
-} */
-
-.highlight {
-  animation: pop-border 1.5s ease-out;
-}
-
-@keyframes pulse {
-  from {
-    box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.6);
-  }
-  to {
-    box-shadow: 0 0 12px 4px rgba(76, 175, 80, 0.3);
-  }
-}
-
-@keyframes pop-border {
-  0% {
-    transform: scale(1);
-    border-color: #4caf50;
-  }
-  50% {
-    transform: scale(1.05);
-    border-color: #66bb6a;
-  }
-  100% {
-    transform: scale(1);
-  }
-}
-
 .app-container {
   max-width: 900px;
   margin: 0 auto;
   padding: 2rem;
   font-family: "Arial", sans-serif;
 }
+
 h1 {
   text-align: center;
-  /* background-color: #f4f4f4; */
   padding: 1rem;
   border-radius: 10px;
+  font-size: 2em;
 }
+
 .header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
   margin-bottom: 1rem;
 }
+
 .score {
   font-weight: bold;
 }
+
 .instruction {
   font-style: italic;
 }
+
 .questions {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 1rem;
 }
+
 .question-card {
-  /* background-color: black; */
   padding: 1rem;
   border: 1px solid #ccc;
   border-radius: 10px;
   transition: transform 0.2s;
 }
+
 .question-card:hover {
   transform: scale(1.01);
-}
-
-.choices label {
-  position: relative;
-  padding-left: 20px;
-  cursor: pointer;
 }
 
 .choices {
@@ -411,12 +298,71 @@ h1 {
   margin-left: 1em;
 }
 
+.choices label {
+  position: relative;
+  padding-left: 20px;
+  cursor: pointer;
+}
+
+.choices label::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%) translateX(20%);
+  width: 100%;
+  height: 100%;
+  border: 2px solid transparent;
+  border-radius: 50%;
+  opacity: 0;
+  transition: border 0.3s ease, opacity 0.3s ease;
+}
+
+.choices label:hover::before {
+  border-color: yellow;
+  opacity: 1;
+}
+
+.choices label.correct-answer::before {
+  border-color: green;
+  opacity: 1;
+}
+
+.choices label.wrong-answer::before {
+  border-color: red;
+  opacity: 1;
+}
+
+.choices label.correct-selected::before {
+  border-color: green;
+  opacity: 1;
+}
+
+.choices label.selected-answer::before {
+  border-color: orange;
+  opacity: 1;
+}
+
+.choice-label {
+  display: inline-block;
+  width: 1.5rem;
+  height: 1.5rem;
+  font-weight: bold;
+  text-align: center;
+  margin-right: 0.5rem;
+}
+
+.hidden-input {
+  display: none;
+}
+
 .buttons {
   display: flex;
   justify-content: center;
   gap: 1rem;
   margin-top: 2rem;
 }
+
 button {
   padding: 0.5rem 1rem;
   border: none;
@@ -478,72 +424,67 @@ footer {
   }
 }
 
-.choices label::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 50%;
-  transform: translateY(-50%) translateX(20%);
-  width: 100%;
-  height: 100%;
-  border: 2px solid transparent;
-  border-radius: 50%;
-  opacity: 0;
-  transition: border 0.3s ease, opacity 0.3s ease;
+.high-scores-container {
+  margin-top: 3rem;
+  padding: 1rem;
+  border: 2px solid #ddd;
+  border-radius: 12px;
+  max-height: 400px;
+  box-shadow: 0 0 12px rgba(0, 0, 0, 0.08);
 }
 
-.choices label:hover::before {
-  border-color: yellow;
-  opacity: 1;
-}
-
-.choices label.correct-answer::before {
-  border-color: green;
-  opacity: 1;
-}
-
-.choices label.wrong-answer::before {
-  border-color: red;
-  opacity: 1;
-}
-
-.choices label.correct-selected::before {
-  border-color: green;
-  opacity: 1;
-}
-
-.choices label.selected-answer::before {
-  border-color: orange;
-  opacity: 1;
-}
-
-.hidden-input {
-  display: none;
-}
-
-.choice-label {
-  display: inline-block;
-  width: 1.5rem;
-  height: 1.5rem;
-  font-weight: bold;
+.high-scores-container h2 {
+  margin-bottom: 0.5rem;
   text-align: center;
-  margin-right: 0.5rem;
 }
 
-@keyframes pulseCircle {
-  0% {
-    transform: scale(0.6) translateY(-50%);
-    opacity: 0;
-  }
-  100% {
-    transform: scale(1) translateY(-50%);
-    opacity: 1;
-  }
+.high-scores-wrapper {
+  width: 100%;
+  height: 315px;
+  overflow-y: scroll;
+  scrollbar-width: thin;
 }
 
-@keyframes popHighlight {
+.high-scores-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.score-entry {
+  padding: 0.75rem 2rem;
+  border-radius: 10px;
+  background: #f3f3f3;
+  color: black;
+  display: flex;
+  align-items: center;
+  transition: background 0.3s;
+  flex-wrap: wrap;
+}
+
+.score-entry strong {
+  flex: 1;
+}
+
+.rank-icon,
+.rank-number {
+  font-size: 1.3rem;
+  margin-right: 1rem;
+}
+
+/* Animation */
+.highlight {
+  animation: pop-border 1.5s ease-out;
+}
+
+@keyframes pop-border {
   0% {
-    transform: scale(0.95);
+    transform: scale(1);
+    border-color: #4caf50;
+  }
+  50% {
+    transform: scale(1.05);
+    border-color: #66bb6a;
   }
   100% {
     transform: scale(1);
@@ -553,6 +494,21 @@ footer {
 @media (max-width: 768px) {
   .questions {
     grid-template-columns: 1fr;
+  }
+
+  .header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .score-entry {
+    padding: 0.75rem 1rem;
+    font-size: 0.95rem;
+  }
+
+  .rank-icon,
+  .rank-number {
+    font-size: 1.1rem;
   }
 }
 </style>
